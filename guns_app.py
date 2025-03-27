@@ -7,19 +7,12 @@ st.set_page_config(layout="wide")
 st.title("🔫 Guns and Butter Index – Multi-Country Comparison")
 
 # -------------------------------
-# 1. Constants & region presets
+# 1. Constants
 # -------------------------------
 INDICATORS = {
     "military": "MS.MIL.XPND.GD.ZS",
     "education": "SE.XPD.TOTL.GD.ZS",
     "health": "SH.XPD.CHEX.GD.ZS",
-}
-
-REGIONS = {
-    "G7": ["US", "GB", "DE", "FR", "IT", "JP", "CA"],
-    "BRICS": ["CN", "IN", "RU", "ZA", "BR"],
-    "MENA": ["EG", "IR", "IQ", "JO", "LB", "DZ", "MA", "SA", "SY", "TN", "YE"],
-    "Sub-Saharan Africa": ["NG", "ZA", "KE", "ET", "GH", "UG", "TZ", "SN", "BW", "RW"]
 }
 
 # -------------------------------
@@ -66,29 +59,14 @@ country_options = get_country_list()
 all_country_codes = [code for code, _ in country_options]
 code_to_name = dict(country_options)
 
-st.sidebar.header("🔍 Country Selection")
-mode = st.sidebar.radio("Compare by:", ["Manual", "Region"])
-
-if mode == "Manual":
-    default_codes = [code for code in ["US", "CN", "RU"] if code in all_country_codes]
-    selected = st.sidebar.multiselect(
-        "Select countries to compare",
-        options=all_country_codes,
-        format_func=lambda x: code_to_name.get(x, x),
-        default=default_codes
-    )
-else:
-    region = st.sidebar.selectbox("Choose a region", list(REGIONS.keys()))
-    raw_list = REGIONS[region]
-    selected = [code for code in raw_list if code in all_country_codes]
-
-    # Show info to the user
-    st.sidebar.caption(f"Found {len(selected)} valid countries in region '{region}'")
-    missing_codes = [code for code in raw_list if code not in all_country_codes]
-    if missing_codes:
-        st.sidebar.markdown(
-            f"⚠️ Missing from WB dataset: {', '.join(missing_codes)}"
-        )
+st.sidebar.header("🔍 Select Countries")
+default_codes = [code for code in ["US", "CN", "RU"] if code in all_country_codes]
+selected = st.sidebar.multiselect(
+    "Compare countries",
+    options=all_country_codes,
+    format_func=lambda x: code_to_name.get(x, x),
+    default=default_codes
+)
 
 year_range = st.sidebar.slider("Year range", 1990, datetime.datetime.now().year - 1, (2000, 2022))
 
