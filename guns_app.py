@@ -70,10 +70,16 @@ st.sidebar.header("🔍 Country Selection")
 mode = st.sidebar.radio("Compare by:", ["Manual", "Region"])
 
 if mode == "Manual":
-    selected = st.sidebar.multiselect("Select countries to compare", options=all_country_codes, format_func=lambda x: code_to_name.get(x, x), default=["US", "CN", "RU"])
+    default_codes = [code for code in ["US", "CN", "RU"] if code in all_country_codes]
+    selected = st.sidebar.multiselect(
+        "Select countries to compare",
+        options=all_country_codes,
+        format_func=lambda x: code_to_name.get(x, x),
+        default=default_codes
+    )
 else:
     region = st.sidebar.selectbox("Choose a region", list(REGIONS.keys()))
-    selected = REGIONS[region]
+    selected = [code for code in REGIONS[region] if code in all_country_codes]
 
 year_range = st.sidebar.slider("Year range", 1990, datetime.datetime.now().year - 1, (2000, 2022))
 
@@ -83,11 +89,15 @@ year_range = st.sidebar.slider("Year range", 1990, datetime.datetime.now().year 
 st.subheader("📈 Guns-to-Butter Ratio Over Time")
 
 combined = pd.DataFrame()
+missing = []
+
 for code in selected:
     data = build_guns_butter_df(code)
     if data is not None:
         country_name = code_to_name.get(code, code)
         combined[country_name] = data["G/B Ratio"]
+    else:
+        missing.append(code_to_name.get(code, code))
 
 filtered = combined[(combined.index >= year_range[0]) & (combined.index <= year_range[1])]
 if filtered.empty:
@@ -96,7 +106,10 @@ else:
     st.line_chart(filtered)
 
 # -------------------------------
-# 5. Raw Data Display
+# 5. Raw Data + Missing Info
 # -------------------------------
 with st.expander("📊 Show raw data"):
     st.dataframe(filtered.round(2))
+
+if missing:
+    st.info(f"No valid data for: {', '.join(missing)}")
