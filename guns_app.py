@@ -91,11 +91,12 @@ for code in selected_countries:
     data = data[(data.index >= year_range[0]) & (data.index <= year_range[1])]
 
     if show_military:
-        chart_data[[f"{country_name} – Military"]] = data["Military"]
+        chart_data[f"{country_name} – Military"] = data["Military"]
     if show_butter:
-        chart_data[[f"{country_name} – Butter"]] = data["Butter"]
+        chart_data[f"{country_name} – Butter"] = data["Butter"]
     if show_ratio:
-        chart_data[[f"{country_name} – G/B Ratio"]] = data["G/B Ratio"]
+        chart_data[f"{country_name} – G/B Ratio"] = data["G/B Ratio"]
+
 
 if chart_data.empty:
     st.warning("No data available for the selected countries and metrics.")
