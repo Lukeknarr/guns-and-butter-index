@@ -79,7 +79,16 @@ if mode == "Manual":
     )
 else:
     region = st.sidebar.selectbox("Choose a region", list(REGIONS.keys()))
-    selected = [code for code in REGIONS[region] if code in all_country_codes]
+    raw_list = REGIONS[region]
+    selected = [code for code in raw_list if code in all_country_codes]
+
+    # Show info to the user
+    st.sidebar.caption(f"Found {len(selected)} valid countries in region '{region}'")
+    missing_codes = [code for code in raw_list if code not in all_country_codes]
+    if missing_codes:
+        st.sidebar.markdown(
+            f"⚠️ Missing from WB dataset: {', '.join(missing_codes)}"
+        )
 
 year_range = st.sidebar.slider("Year range", 1990, datetime.datetime.now().year - 1, (2000, 2022))
 
