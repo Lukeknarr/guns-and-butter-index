@@ -138,7 +138,7 @@ if not chart_df.empty:
 # -------------------------------
 # 7. Ask for Context
 # -------------------------------
-sst.subheader("🧠 Ask Why Something Happened")
+st.subheader("🧠 Ask Why Something Happened")
 
 q = st.text_input("Ask: e.g. Why did Guyana’s G/B ratio spike in 2004?")
 if q:
