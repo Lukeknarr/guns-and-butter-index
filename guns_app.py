@@ -72,8 +72,14 @@ country_codes = [c[0] for c in countries]
 code_to_name = {c[0]: c[1] for c in countries}
 code_to_region = {c[0]: c[2] for c in countries}
 
-default = ["US", "CN", "RU"]
-selected = st.multiselect("🌍 Select Countries", country_codes, default=default, format_func=lambda x: code_to_name.get(x, x))
+default = [c for c in ["US", "CN", "RU"] if c in country_codes]
+selected = st.multiselect(
+    "🌍 Select Countries",
+    options=country_codes,
+    default=default,
+    format_func=lambda x: code_to_name.get(x, x)
+)
+
 year_range = st.slider("Year Range", 1990, datetime.datetime.now().year - 1, (2000, 2022))
 
 metrics = st.multiselect("📊 Metrics to Display", ["Military", "Butter", "G/B Ratio"], default=["G/B Ratio"])
