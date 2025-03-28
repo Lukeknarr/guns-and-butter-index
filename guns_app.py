@@ -1,10 +1,13 @@
+
 import streamlit as st
 import pandas as pd
 import requests
 import datetime
+import altair as alt
+from io import BytesIO
 
 st.set_page_config(layout="wide")
-st.title("🔫 Guns and Butter Index – Multi-Country Comparison")
+st.title("🔫 Guns and Butter Index – Advanced Comparison Dashboard")
 
 # -------------------------------
 # 1. Constants
@@ -14,15 +17,23 @@ INDICATORS = {
     "education": "SE.XPD.TOTL.GD.ZS",
     "health": "SH.XPD.CHEX.GD.ZS",
 }
+REGIONAL_GROUPS = {
+    "Sub-Saharan Africa": ["NG", "ZA", "KE", "ET", "GH"],
+    "Europe & Central Asia": ["DE", "FR", "IT", "GB", "PL"],
+    "Middle East & North Africa": ["EG", "IR", "IQ", "SA", "DZ"],
+    "South Asia": ["IN", "PK", "BD", "LK", "NP"],
+    "East Asia & Pacific": ["CN", "JP", "KR", "ID", "PH"],
+    "Latin America & Caribbean": ["BR", "MX", "AR", "CO", "CL"],
+}
 
 # -------------------------------
-# 2. Helper Functions
+# 2. Data Functions
 # -------------------------------
 @st.cache_data(show_spinner=False)
 def get_country_list():
     url = "https://api.worldbank.org/v2/country?format=json&per_page=500"
     res = requests.get(url).json()[1]
-    return sorted([(c["id"], f"{c['name']} ({c['id']})") for c in res if c["region"]["value"] != "Aggregates"], key=lambda x: x[1])
+    return sorted([(c["id"], f"{c['name']} ({c['id']})", c["region"]["value"]) for c in res if c["region"]["value"] != "Aggregates"], key=lambda x: x[1])
 
 def get_indicator_data(country_code, indicator):
     url = f"https://api.worldbank.org/v2/country/{country_code}/indicator/{indicator}?format=json&per_page=1000"
@@ -32,90 +43,99 @@ def get_indicator_data(country_code, indicator):
     data = res[1]
     df = pd.DataFrame(data)[["date", "value"]].dropna()
     df["date"] = pd.to_numeric(df["date"])
+    df["value"] = pd.to_numeric(df["value"], errors="coerce")
     df.set_index("date", inplace=True)
     return df.sort_index()
 
-def build_country_metrics(country_code):
-    mil = get_indicator_data(country_code, INDICATORS["military"])
-    edu = get_indicator_data(country_code, INDICATORS["education"])
-    hlth = get_indicator_data(country_code, INDICATORS["health"])
-    
+def build_country_metrics(code):
+    mil = get_indicator_data(code, INDICATORS["military"])
+    edu = get_indicator_data(code, INDICATORS["education"])
+    hlth = get_indicator_data(code, INDICATORS["health"])
     if mil.empty or edu.empty or hlth.empty:
         return None
-
-    df = pd.DataFrame(index=mil.index)
+    all_years = mil.index.union(edu.index).union(hlth.index)
+    df = pd.DataFrame(index=all_years)
     df["Military"] = mil["value"]
-    df["Butter"] = edu["value"] + hlth["value"]
+    df["Education"] = edu["value"]
+    df["Health"] = hlth["value"]
+    df["Butter"] = df["Education"] + df["Health"]
     df["G/B Ratio"] = df["Military"] / df["Butter"]
+    df = df.sort_index().astype(float)
+    df = df.interpolate(limit_direction="both")
     return df
 
 # -------------------------------
-# 3. Input Controls (Main Panel)
+# 3. UI Controls
 # -------------------------------
-country_options = get_country_list()
-all_country_codes = [code for code, _ in country_options]
-code_to_name = dict(country_options)
+countries = get_country_list()
+country_codes = [c[0] for c in countries]
+code_to_name = {c[0]: c[1] for c in countries}
+code_to_region = {c[0]: c[2] for c in countries}
 
-st.subheader("🌍 Select Countries to Compare")
+default = ["US", "CN", "RU"]
+selected = st.multiselect("🌍 Select Countries", country_codes, default=default, format_func=lambda x: code_to_name.get(x, x))
+year_range = st.slider("Year Range", 1990, datetime.datetime.now().year - 1, (2000, 2022))
 
-default_codes = [code for code in ["US", "CN", "RU"] if code in all_country_codes]
-selected_countries = st.multiselect(
-    "Countries:",
-    options=all_country_codes,
-    format_func=lambda x: code_to_name.get(x, x),
-    default=default_codes
-)
+metrics = st.multiselect("📊 Metrics to Display", ["Military", "Butter", "G/B Ratio"], default=["G/B Ratio"])
 
-col1, col2, col3 = st.columns(3)
-with col1:
-    show_military = st.checkbox("Military Spending (% of GDP)", value=True)
-with col2:
-    show_butter = st.checkbox("Butter (Health + Education)", value=False)
-with col3:
-    show_ratio = st.checkbox("Guns-to-Butter Ratio", value=True)
-
-year_range = st.slider(
-    "Year Range:",
-    min_value=1990,
-    max_value=datetime.datetime.now().year - 1,
-    value=(2000, 2022)
-)
 # -------------------------------
-# 4. Build and Filter Data
+# 4. Data Compilation
 # -------------------------------
-st.subheader("📈 Selected Indicator(s) Over Time")
+combined = pd.DataFrame()
+long_data = []
 
-chart_data = pd.DataFrame()
-missing = []
+for code in selected:
+    name = code_to_name.get(code, code)
+    df = build_country_metrics(code)
+    if df is None: continue
+    df = df.loc[(df.index >= year_range[0]) & (df.index <= year_range[1])]
+    for metric in metrics:
+        temp = df[[metric]].copy()
+        temp["Country"] = name
+        temp["Metric"] = metric
+        temp = temp.rename(columns={metric: "Value"})
+        long_data.append(temp)
 
-for code in selected_countries:
-    country_name = code_to_name.get(code, code)
-    data = build_country_metrics(code)
-    if data is None:
-        missing.append(country_name)
-        continue
-
-    # Filter year range
-    data = data[(data.index >= year_range[0]) & (data.index <= year_range[1])]
-
-    if show_military:
-        chart_data[f"{country_name} – Military"] = data["Military"]
-    if show_butter:
-        chart_data[f"{country_name} – Butter"] = data["Butter"]
-    if show_ratio:
-        chart_data[f"{country_name} – G/B Ratio"] = data["G/B Ratio"]
-
-
-if chart_data.empty:
-    st.warning("No data available for the selected countries and metrics.")
+if long_data:
+    chart_df = pd.concat(long_data).reset_index().rename(columns={"date": "Year"})
 else:
-    st.line_chart(chart_data)
+    chart_df = pd.DataFrame()
 
 # -------------------------------
-# 5. Raw Data & Warnings
+# 5. Altair Chart
 # -------------------------------
-with st.expander("📋 Show raw data"):
-    st.dataframe(chart_data.round(2))
+if not chart_df.empty:
+    st.subheader("📈 Interactive Chart")
+    chart = alt.Chart(chart_df).mark_line().encode(
+        x=alt.X("Year:O", axis=alt.Axis(labelAngle=0)),
+        y="Value:Q",
+        color="Country:N",
+        strokeDash="Metric:N",
+        tooltip=["Year", "Country", "Metric", "Value"]
+    ).properties(width=1000, height=450)
+    st.altair_chart(chart, use_container_width=True)
 
-if missing:
-    st.info(f"⚠️ No valid data for: {', '.join(missing)}")
+# -------------------------------
+# 6. Tabs & Data Export
+# -------------------------------
+st.subheader("📋 Raw Data & Export")
+with st.expander("Show data table"):
+    st.dataframe(chart_df)
+
+def convert_df_to_csv(df):
+    return df.to_csv(index=False).encode("utf-8")
+
+if not chart_df.empty:
+    csv = convert_df_to_csv(chart_df)
+    st.download_button("📥 Download CSV", csv, "guns_butter_data.csv", "text/csv")
+
+# -------------------------------
+# 7. Ask for Context
+# -------------------------------
+st.subheader("🧠 Ask Why Something Happened")
+q = st.text_input("Ask: e.g. Why did Guyana’s G/B ratio spike in 2004?")
+if q:
+    st.markdown("**(Sample GPT insight):**")
+    st.markdown(f"> _{q}_
+
+Military spending increased due to regional instability, while health/education budgets remained static.")
