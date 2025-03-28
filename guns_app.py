@@ -136,6 +136,7 @@ st.subheader("🧠 Ask Why Something Happened")
 q = st.text_input("Ask: e.g. Why did Guyana’s G/B ratio spike in 2004?")
 if q:
     st.markdown("**(Sample GPT insight):**")
-    st.markdown(f"> _{q}_
+    st.markdown(f"> _{q}_")
+    st.markdown("Military spending increased due to regional instability, while health/education budgets remained static.")
 
 Military spending increased due to regional instability, while health/education budgets remained static.")
