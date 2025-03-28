@@ -50,28 +50,36 @@ def build_country_metrics(country_code):
     return df
 
 # -------------------------------
-# 3. Sidebar Inputs
+# 3. Input Controls (Main Panel)
 # -------------------------------
 country_options = get_country_list()
 all_country_codes = [code for code, _ in country_options]
 code_to_name = dict(country_options)
 
-st.sidebar.header("🌍 Country Selection")
+st.subheader("🌍 Select Countries to Compare")
+
 default_codes = [code for code in ["US", "CN", "RU"] if code in all_country_codes]
-selected_countries = st.sidebar.multiselect(
-    "Compare countries",
+selected_countries = st.multiselect(
+    "Countries:",
     options=all_country_codes,
     format_func=lambda x: code_to_name.get(x, x),
     default=default_codes
 )
 
-st.sidebar.header("📊 Metrics to Display")
-show_military = st.sidebar.checkbox("Military Spending (% of GDP)", value=True)
-show_butter = st.sidebar.checkbox("Butter (Health + Education, % of GDP)", value=False)
-show_ratio = st.sidebar.checkbox("Guns-to-Butter Ratio", value=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    show_military = st.checkbox("Military Spending (% of GDP)", value=True)
+with col2:
+    show_butter = st.checkbox("Butter (Health + Education)", value=False)
+with col3:
+    show_ratio = st.checkbox("Guns-to-Butter Ratio", value=True)
 
-year_range = st.sidebar.slider("Year range", 1990, datetime.datetime.now().year - 1, (2000, 2022))
-
+year_range = st.slider(
+    "Year Range:",
+    min_value=1990,
+    max_value=datetime.datetime.now().year - 1,
+    value=(2000, 2022)
+)
 # -------------------------------
 # 4. Build and Filter Data
 # -------------------------------
